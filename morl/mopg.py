@@ -37,7 +37,7 @@ def evaluation(args, sample):
                 if args.ob_rms:
                     ob = np.clip((ob - ob_rms.mean) / np.sqrt(ob_rms.var + 1e-8), -10.0, 10.0)
                 _, action, _, _ = policy.act(torch.Tensor(ob).unsqueeze(0), None, None, deterministic=True)
-                ob, _, done, info = eval_env.step(action)
+                ob, _, done, info = eval_env.step(action.squeeze())
                 objs += gamma * info['obj']
                 if not args.raw:
                     gamma *= args.gamma
