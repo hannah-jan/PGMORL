@@ -2,13 +2,13 @@ import numpy as np
 import torch
 import torch.optim as optim
 from copy import deepcopy
-from sample import Sample
-from utils import get_ep_indices, generate_weights_batch_dfs, update_ep, compute_hypervolume, compute_sparsity, update_ep_and_compute_hypervolume_sparsity
+from morl.sample import Sample
+from morl.utils import get_ep_indices, generate_weights_batch_dfs, update_ep, compute_hypervolume, compute_sparsity, update_ep_and_compute_hypervolume_sparsity
 from scipy.optimize import least_squares
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue, Event
-from hypervolume import InnerHyperVolume
+from morl.hypervolume import InnerHyperVolume
 
 def collect_nearest_data(opt_graph, index, threshold = 0.1):
     objs_data, weights_data, delta_objs_data = [], [], []

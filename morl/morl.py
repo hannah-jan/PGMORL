@@ -14,16 +14,16 @@ from multiprocessing import Process, Queue, Event
 import pickle
 
 # import our packages
-from scalarization_methods import WeightedSumScalarization
-from sample import Sample
-from task import Task
-from ep import EP
-from population_2d import Population as Population2d
-from population_3d import Population as Population3d
-from opt_graph import OptGraph
-from utils import generate_weights_batch_dfs, print_info
-from warm_up import initialize_warm_up_batch
-from mopg import MOPG_worker
+from morl.scalarization_methods import WeightedSumScalarization
+from morl.sample import Sample
+from morl.task import Task
+from morl.ep import EP
+from morl.population_2d import Population as Population2d
+from morl.population_3d import Population as Population3d
+from morl.opt_graph import OptGraph
+from morl.utils import generate_weights_batch_dfs, print_info
+from morl.warm_up import initialize_warm_up_batch
+from morl.mopg import MOPG_worker
 
 def run(args):
 

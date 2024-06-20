@@ -11,10 +11,10 @@ from a2c_ppo_acktr import algo
 from a2c_ppo_acktr.envs import make_vec_envs, make_env
 from a2c_ppo_acktr.model import Policy
 
-from sample import Sample
-from utils import generate_weights_batch_dfs
-from scalarization_methods import WeightedSumScalarization
-from mopg import evaluation
+from morl.sample import Sample
+from morl.utils import generate_weights_batch_dfs
+from morl.scalarization_methods import WeightedSumScalarization
+from morl.mopg import evaluation
 
 '''
 initialize_warm_up_batch: method to generate tasks in the warm-up stage.

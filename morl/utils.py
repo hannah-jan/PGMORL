@@ -6,7 +6,7 @@ sys.path.append(os.path.join(base_dir, 'externals/pytorch-a2c-ppo-acktr-gail'))
 
 import numpy as np
 from copy import deepcopy
-from hypervolume import InnerHyperVolume
+from morl.hypervolume import InnerHyperVolume
 
 def print_error(*message):
     print('\033[91m', 'ERROR ', *message, '\033[0m')

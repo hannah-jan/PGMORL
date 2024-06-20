@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 from copy import deepcopy
-from sample import Sample
-from utils import get_ep_indices
+from morl.sample import Sample
+from morl.utils import get_ep_indices
 
 '''
 Define a external pareto class storing all computed policies on the current pareto front.

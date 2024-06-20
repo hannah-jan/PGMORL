@@ -1,5 +1,5 @@
 from copy import deepcopy
-from sample import Sample
+from morl.sample import Sample
 
 '''
 Define a MOPG task, which is a pair of a policy and a scalarization weight.

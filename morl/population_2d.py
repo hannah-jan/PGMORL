@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 from copy import deepcopy
-from sample import Sample
-from utils import get_ep_indices
+from morl.sample import Sample
+from morl.utils import get_ep_indices
 from scipy.optimize import least_squares
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')

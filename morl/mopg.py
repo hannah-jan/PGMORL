@@ -17,7 +17,7 @@ from a2c_ppo_acktr.envs import make_vec_envs, make_env
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 
-from sample import Sample
+from morl.sample import Sample
 
 '''
 Evaluate a policy sample.
