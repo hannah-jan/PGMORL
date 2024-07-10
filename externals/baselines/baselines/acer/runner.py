@@ -49,7 +49,7 @@ class Runner(AbstractEnvRunner):
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_mus = np.asarray(mb_mus, dtype=np.float32).swapaxes(1, 0)
 
-        mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
+        mb_dones = np.asarray(mb_dones, dtype=bool).swapaxes(1, 0)
 
         mb_masks = mb_dones # Used for statefull models like LSTM's to mask state when done
         mb_dones = mb_dones[:, 1:] # Used for calculating returns. The dones array is now aligned with rewards

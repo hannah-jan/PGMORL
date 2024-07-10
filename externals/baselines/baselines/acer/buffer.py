@@ -54,8 +54,8 @@ class Buffer(object):
             self.actions = np.empty([self.size] + list(actions.shape), dtype=self.ac_dtype)
             self.rewards = np.empty([self.size] + list(rewards.shape), dtype=np.float32)
             self.mus = np.empty([self.size] + list(mus.shape), dtype=np.float32)
-            self.dones = np.empty([self.size] + list(dones.shape), dtype=np.bool)
-            self.masks = np.empty([self.size] + list(masks.shape), dtype=np.bool)
+            self.dones = np.empty([self.size] + list(dones.shape), dtype=)
+            self.masks = np.empty([self.size] + list(masks.shape), dtype=bool)
 
         self.enc_obs[self.next_idx] = enc_obs
         self.actions[self.next_idx] = actions

@@ -50,7 +50,7 @@ class Runner(AbstractEnvRunner):
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_actions = np.asarray(mb_actions, dtype=self.model.train_model.action.dtype.name).swapaxes(1, 0)
         mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
-        mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
+        mb_dones = np.asarray(mb_dones, dtype=bool).swapaxes(1, 0)
         mb_masks = mb_dones[:, :-1]
         mb_dones = mb_dones[:, 1:]
 
