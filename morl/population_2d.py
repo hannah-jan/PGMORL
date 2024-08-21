@@ -1,3 +1,4 @@
+import ast
 import numpy as np
 import torch
 import torch.optim as optim
@@ -8,6 +9,7 @@ from scipy.optimize import least_squares
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 from torch.multiprocessing import Process, Queue, Event
+from pymoo.indicators.hv import HV 
 
 def collect_nearest_data(opt_graph, optgraph_id, threshold = 0.1):
     objs_data, weights_data, delta_objs_data = [], [], []
@@ -122,11 +124,12 @@ Population class maintains the population of the policies by performance buffer 
 '''
 class Population:
     def __init__(self, args):
+        reference_point = ast.literal_eval(args.reference_point)
         self.sample_batch = [] # all samples in population
         self.pbuffer_num = args.pbuffer_num
         self.pbuffer_size = args.pbuffer_size
         self.dtheta = np.pi / 2.0 / self.pbuffer_num
-        self.z_min = np.zeros(args.obj_num) # reference point
+        self.z_min = np.array(reference_point)# reference point
         self.pbuffers = None
         self.pbuffer_dist = None
 
@@ -184,7 +187,7 @@ class Population:
 
     def compute_hypervolume(self, objs_batch):
         ep_objs_batch = deepcopy(np.array(objs_batch)[get_ep_indices(objs_batch)])
-        ref_x, ref_y = 0.0, 0.0
+        ref_x, ref_y = self.z_min
         x, hv = ref_x, 0.0
         for objs in ep_objs_batch:
             hv += (max(ref_x, objs[0]) - x) * (max(ref_y, objs[1]) - ref_y)

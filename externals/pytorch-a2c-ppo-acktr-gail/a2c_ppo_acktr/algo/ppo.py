@@ -38,6 +38,8 @@ class PPO():
         self.scalarization_func = scalarization_func
 
     def update(self, rollouts, scalarization = None, obj_var = None):
+        torch.set_num_threads(1)
+
         op_axis = tuple(range(len(rollouts.returns.shape) - 1))
         
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]

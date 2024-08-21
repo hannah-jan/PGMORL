@@ -44,7 +44,7 @@ class DummyVecEnv(VecEnv):
 
     def step_wait(self):
         for e in range(self.num_envs):
-            action = self.actions[e]
+            action = self.actions[e].unsqueeze(0)
             # if isinstance(self.envs[e].action_space, spaces.Discrete):
             #    action = int(action)
 

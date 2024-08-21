@@ -37,7 +37,7 @@ class RolloutStorage(object):
         self.nadir_z = torch.zeros(obj_num)
 
     def to(self, device):
-        self.obs = self.obs.to(device)
+        self.obs = self.obs.to(device, dtype=torch.float64)
         self.recurrent_hidden_states = self.recurrent_hidden_states.to(device)
         self.rewards = self.rewards.to(device)
         self.value_preds = self.value_preds.to(device)

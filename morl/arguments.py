@@ -1,4 +1,5 @@
 import argparse
+from typing import List
 
 def get_parser():
     parser = argparse.ArgumentParser(description='RL')
@@ -7,6 +8,13 @@ def get_parser():
     parser.add_argument('--env-name',
         default='MO-HalfCheetah-v2',
         help='environment to train on')
+    parser.add_argument('--reference_point',
+        type=str,
+        help='Reference point for environment')
+    parser.add_argument('--episode_length',
+        type=int,
+        default=1000,
+        help='episode length')
     parser.add_argument('--obj-num',
         type=int,
         default=2,

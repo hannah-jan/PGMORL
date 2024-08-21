@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, gc
 base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 sys.path.append(base_dir)
 sys.path.append(os.path.join(base_dir, 'externals/baselines'))
@@ -13,17 +13,25 @@ import torch
 import gym
 # import a2c_ppo_acktr
 from a2c_ppo_acktr import algo, utils
-from a2c_ppo_acktr.envs import make_vec_envs, make_env
 from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 
 from morl.sample import Sample
+from qdax.environments.torch_wrappers.jax_to_torch_wrappers import make_env_brax
+from qdax.environments.torch_wrappers.vec_torch_wrappers import make_vec_envs
+
 
 '''
 Evaluate a policy sample.
 '''
 def evaluation(args, sample):
-    eval_env = gym.make(args.env_name)
+    eval_env = make_env_brax(
+        args.env_name,
+        seed=args.seed,
+        batch_size=1,
+        episode_length=args.episode_length,
+    )
+        
     objs = np.zeros(args.obj_num)
     ob_rms = sample.env_params['ob_rms']
     policy = sample.actor_critic
@@ -35,13 +43,14 @@ def evaluation(args, sample):
             gamma = 1.0
             while not done:
                 if args.ob_rms:
-                    ob = np.clip((ob - ob_rms.mean) / np.sqrt(ob_rms.var + 1e-8), -10.0, 10.0)
+                    ob = np.clip((ob - ob_rms.mean) / np.sqrt(ob_rms.var + 1e-8), -10.0, 10.0).squeeze()
                 _, action, _, _ = policy.act(torch.Tensor(ob).unsqueeze(0), None, None, deterministic=True)
-                ob, _, done, info = eval_env.step(action.squeeze())
-                objs += gamma * info['obj']
+                ob, _, done, info = eval_env.step(action)
+                objs += gamma * np.array(info['obj']).squeeze()
                 if not args.raw:
                     gamma *= args.gamma
-    eval_env.close()
+    del eval_env
+    gc.collect()
     objs /= args.eval_num
     return objs
 
@@ -62,11 +71,19 @@ def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time,
     env_params, actor_critic, agent = task.sample.env_params, task.sample.actor_critic, task.sample.agent
     
     weights_str = (args.obj_num * '_{:.3f}').format(*task.scalarization.weights)
-
-    # make envs
-    envs = make_vec_envs(env_name=args.env_name, seed=args.seed, num_processes=args.num_processes, \
-                        gamma=args.gamma, log_dir=None, device=device, allow_early_resets=False, \
-                        obj_rms=args.obj_rms, ob_rms = args.ob_rms)
+    
+    envs = make_vec_envs(
+        env_name=args.env_name,
+        seed=args.seed,
+        num_processes=args.num_processes,
+        gamma=args.gamma,
+        log_dir=None,
+        device="cpu",
+        allow_early_resets=False,
+        obj_rms=args.obj_rms,
+        ob_rms=args.ob_rms,
+    )
+    
     if env_params['ob_rms'] is not None:
         envs.venv.ob_rms = deepcopy(env_params['ob_rms'])
     if env_params['ret_rms'] is not None:
@@ -79,7 +96,7 @@ def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time,
                               obs_shape = envs.observation_space.shape, action_space = envs.action_space,
                               recurrent_hidden_state_size = actor_critic.recurrent_hidden_state_size, obj_num=args.obj_num)
     obs = envs.reset()
-    rollouts.obs[0].copy_(obs)
+    rollouts.obs[0].copy_(obs).to(torch.float64)
     rollouts.to(device)
 
     episode_rewards = deque(maxlen=10)
@@ -111,7 +128,7 @@ def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time,
             obj_tensor = torch.zeros([args.num_processes, args.obj_num])
 
             for idx, info in enumerate(infos):
-                obj_tensor[idx] = torch.from_numpy(info['obj'])
+                obj_tensor[idx] = info['obj']
                 episode_obj[idx] = info['obj_raw'] if episode_obj[idx] is None else episode_obj[idx] + info['obj_raw']
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
@@ -176,7 +193,8 @@ def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time,
                 results['done'] = False
             results_queue.put(results)
             offspring_batch = []
+            
+    del envs   
+    gc.collect() 
 
-    envs.close()   
-    
     done_event.wait()

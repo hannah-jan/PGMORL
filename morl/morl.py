@@ -10,7 +10,9 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torch.optim as optim
-from multiprocessing import Process, Queue, Event
+import traceback
+import multiprocessing as mp
+from multiprocessing import Event, Queue, Process
 import pickle
 
 # import our packages
@@ -78,11 +80,12 @@ def run(args):
 
         # run MOPG for each task in parallel
         processes = []
-        results_queue = Queue()
-        done_event = Event()
-        
+        context = mp.get_context('spawn')
+        results_queue = context.Queue()
+        done_event = context.Event()
+    
         for task_id, task in enumerate(task_batch):
-            p = Process(target = MOPG_worker, \
+            p = context.Process(target = MOPG_worker, \
                 args = (args, task_id, task, device, iteration, rl_num_updates, start_time, results_queue, done_event))
             p.start()
             processes.append(p)

@@ -7,6 +7,7 @@ sys.path.append(os.path.join(base_dir, 'externals/pytorch-a2c-ppo-acktr-gail'))
 import numpy as np
 from copy import deepcopy
 from morl.hypervolume import InnerHyperVolume
+from pymoo.indicators.hv import HV
 
 def print_error(*message):
     print('\033[91m', 'ERROR ', *message, '\033[0m')
@@ -33,15 +34,19 @@ def get_ep_indices(obj_batch_input):
     obj_batch = np.array(obj_batch_input)
     sorted_indices = np.argsort(obj_batch.T[0])
     ep_indices = []
+    ep_objs = []
     for idx in sorted_indices:
-        if (obj_batch[idx] >= 0).all() and not check_dominated(obj_batch, obj_batch[idx]):
-            ep_indices.append(idx)
+        if not check_dominated(obj_batch, obj_batch[idx]):
+            if len(ep_objs) == 0:
+                ep_indices.append(idx)
+                ep_objs.append(obj_batch[idx])
+            elif (obj_batch[idx] - ep_objs[-1] > 1e-5).any():
+                ep_indices.append(idx)
+                ep_objs.append(obj_batch[idx])
     return ep_indices
 
 # update ep with a new point
 def update_ep(ep_objs_batch, new_objs):
-    if (new_objs < 0).any():
-        return deepcopy(ep_objs_batch)
     new_ep_objs_batch = []
     on_ep = True
     for i in range(len(ep_objs_batch)):
@@ -78,10 +83,9 @@ def generate_weights_batch_dfs(i, obj_num, min_weight, max_weight, delta_weight,
         w += delta_weight
 
 # compute the hypervolume of a given pareto front
-def compute_hypervolume(ep_objs_batch):
-    n = len(ep_objs_batch[0])
-    HV = InnerHyperVolume(np.zeros(n))
-    return HV.compute(ep_objs_batch)
+def compute_hypervolume(reference_point, ep_objs_batch):
+    hv =  HV(ref_point=reference_point * -1)(ep_objs_batch * -1)
+    return hv
 
 # compute the sparsity of a given pareto front
 def compute_sparsity(ep_objs_batch):
@@ -99,9 +103,9 @@ def compute_sparsity(ep_objs_batch):
     
     return sparsity
 
-def update_ep_and_compute_hypervolume_sparsity(task_id, ep_objs_batch, new_objs, queue):
+def update_ep_and_compute_hypervolume_sparsity(task_id, reference_point, ep_objs_batch, new_objs, queue):
     new_ep_objs_batch = update_ep(ep_objs_batch, new_objs)
-    hv = compute_hypervolume(new_ep_objs_batch)
+    hv = compute_hypervolume(reference_point, np.array(new_ep_objs_batch))
     sparsity = compute_sparsity(new_ep_objs_batch)
     queue.put([task_id, hv, sparsity])
 

@@ -1,3 +1,4 @@
+import ast
 import numpy as np
 import torch
 import torch.optim as optim
@@ -77,47 +78,51 @@ def predict_hyperbolic(args, opt_graph, index, test_weights):
 
     M = args.obj_num
     delta_predictions = []
-    for dim in range(M):
-        train_x = []
-        train_y = []
-        w = []
-        for i in range(len(objs_data)):
-            train_x.append(weights_data[i][dim])
-            train_y.append(delta_objs_data[i][dim])
-            diff = np.abs(objs_data[i] - opt_graph.objs[index])
-            dist = np.linalg.norm(diff / np.abs(opt_graph.objs[index]))
-            coef = np.exp(-((dist  / sigma) ** 2) / 2.0)
-            w.append(coef)
-        
-        train_x = np.array(train_x)
-        train_y = np.array(train_y)
-        w = np.array(w)
+    if len(objs_data) == 0:
+        return {'sample_index': index, 'predictions': [opt_graph.objs[index]] * len(test_weights)}
+    else:
+        for dim in range(M):
+            train_x = []
+            train_y = []
+            w = []
+            for i in range(len(objs_data)):
+                train_x.append(weights_data[i][dim])
+                train_y.append(delta_objs_data[i][dim])
+                diff = np.abs(objs_data[i] - opt_graph.objs[index])
+                dist = np.linalg.norm(diff / np.abs(opt_graph.objs[index]))
+                coef = np.exp(-((dist  / sigma) ** 2) / 2.0)
+                w.append(coef)
+            
+            train_x = np.array(train_x)
+            train_y = np.array(train_y)
+            w = np.array(w)
 
-        A_upperbound = np.clip(np.max(train_y) - np.min(train_y), 1.0, 500.0)
-        params0 = np.ones(4)
-        
-        f_scale = 20.
+            A_upperbound = np.clip(np.max(train_y) - np.min(train_y), 1.0, 500.0)
+            params0 = np.ones(4)
+            
+            f_scale = 20.
 
-        res_robust = least_squares(fun, params0, loss='soft_l1', f_scale = f_scale, args = (train_x, train_y), jac = jac, bounds = ([0, 0.1, -5., -500.], [A_upperbound, 20., 5., 500.]))
-        
-        delta_predictions.append(f(test_weights.T[dim], *res_robust.x))
+            res_robust = least_squares(fun, params0, loss='soft_l1', f_scale = f_scale, args = (train_x, train_y), jac = jac, bounds = ([0, 0.1, -5., -500.], [A_upperbound, 20., 5., 500.]))
+            
+            delta_predictions.append(f(test_weights.T[dim], *res_robust.x))
 
-    predictions = []
-    delta_predictions = np.transpose(np.array(delta_predictions))
-    original_objs = opt_graph.objs[index]
-    for i in range(len(test_weights)):
-        predictions.append(original_objs + delta_predictions[i])
+        predictions = []
+        delta_predictions = np.transpose(np.array(delta_predictions))
+        original_objs = opt_graph.objs[index]
+        for i in range(len(test_weights)):
+            predictions.append(original_objs + delta_predictions[i])
 
-    results = {'sample_index': index, 'predictions': predictions}
+        results = {'sample_index': index, 'predictions': predictions}
 
-    return results
+        return results
 
 class Population:
     def __init__(self, args):
+        reference_point = ast.literal_eval(args.reference_point)
         self.sample_batch = [] # all samples in population
         self.pbuffer_size = args.pbuffer_size
         self.obj_num = args.obj_num
-        self.z_min = np.zeros(args.obj_num) # left-lower reference point
+        self.z_min = np.array(reference_point)# reference point
         self.pbuffer_vec = []
         generate_weights_batch_dfs(0, args.obj_num, 0.0, 1.0, 1.0 / (args.pbuffer_num - 1), [], self.pbuffer_vec)
         for i in range(len(self.pbuffer_vec)):
@@ -192,7 +197,7 @@ class Population:
         for i in range(len(candidates)):
             if mask[i]:
                 new_ep_objs_batch = update_ep(virtual_ep_objs_batch, candidates[i]['prediction'])
-                hv[i] = compute_hypervolume(new_ep_objs_batch)
+                hv[i] = compute_hypervolume(self.z_min, new_ep_objs_batch)
         return hv
 
     def evaluate_sparsity(self, candidates, mask, virtual_ep_objs_batch):
@@ -209,7 +214,7 @@ class Population:
         for i in range(len(candidates)):
             if mask[i]:
                 new_ep_objs_batch = update_ep(virtual_ep_objs_batch, candidates[i]['prediction'])
-                hv[i] = compute_hypervolume(new_ep_objs_batch)
+                hv[i] = compute_hypervolume(self.z_min, new_ep_objs_batch)
                 sparsity[i] = compute_sparsity(new_ep_objs_batch)
         return hv, sparsity
 
@@ -221,7 +226,7 @@ class Population:
         queue = Queue()
         for i in range(len(candidates)):
             if mask[i]:
-                p = Process(target=update_ep_and_compute_hypervolume_sparsity, args=(i, virtual_ep_objs_batch, candidates[i]['prediction'], queue))
+                p = Process(target=update_ep_and_compute_hypervolume_sparsity, args=(i, self.z_min, virtual_ep_objs_batch, candidates[i]['prediction'], queue))
                 p.start()
                 processes.append(p)
                 if len(processes) >= max_process_num:

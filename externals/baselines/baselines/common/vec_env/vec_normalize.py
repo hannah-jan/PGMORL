@@ -33,7 +33,7 @@ class VecNormalize(VecEnvWrapper):
         if 'obj' in infos[0]:
             for info in infos:
                 info['obj_raw'] = info['obj']
-            obj = np.array([info['obj'] for info in infos])
+            obj = np.array([info['obj'].numpy() for info in infos])
             self.obj = self.obj * self.gamma + obj if self.obj[0] is not None else obj
 
         obs = self._obfilt(obs)
