@@ -199,7 +199,7 @@ class CNNBase(NNBase):
 
 
 class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64, layernorm=True):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64, layernorm=False):
         super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
 
         if recurrent:
@@ -214,7 +214,7 @@ class MLPBase(NNBase):
             actor_modules.append(init_(nn.Linear(last_hidden_size, hidden_size, bias=not layernorm)))
             if layernorm:
                 actor_modules.append(nn.LayerNorm(hidden_size, elementwise_affine=True))
-            actor_modules.append(nn.Tanh())
+            actor_modules.append(nn.ReLU())
             last_hidden_size = hidden_size
 
         self.actor = nn.Sequential(*actor_modules)
