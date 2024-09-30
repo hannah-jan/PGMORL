@@ -62,10 +62,44 @@ def init_pgmorl(args):
     episode = 0
     iteration = 0
     
-    return args, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
+     # compose task for each elite
+    task_batch = []
+    for elite, scalarization in \
+            zip(elite_batch, scalarization_batch):
+        task_batch.append(Task(elite, scalarization)) # each task is a (policy, weight) pair
+    
+    return args, task_batch, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
+
+
+def init_processes(
+    args,
+    start_time,
+    task_batch,
+    rl_num_updates,
+    iteration
+):
+
+    device = torch.device("cpu")
+
+    # run MOPG for each task in parallel
+    processes = []
+    context = mp.get_context('spawn')
+    results_queue = context.Queue()
+    done_event = context.Event()
+
+    for task_id, task in enumerate(task_batch):
+        p = context.Process(target = MOPG_worker, \
+            args = (args, task_id, task, device, iteration, rl_num_updates, start_time, results_queue, done_event))
+        p.start()
+        processes.append(p)
+    
+    return processes, results_queue, done_event
     
 
-def run(args,
+def run(processes,
+        results_queue,
+        done_event,
+        args,
         total_num_updates, 
         start_time, 
         ep, 
@@ -78,8 +112,6 @@ def run(args,
         episode, 
         iteration    
     ):
-
-    device = torch.device("cpu")
 
     if episode == 0:
         print_info('\n------------------------------- Warm-up Stage -------------------------------')    
@@ -96,18 +128,6 @@ def run(args,
     for elite, scalarization in \
             zip(elite_batch, scalarization_batch):
         task_batch.append(Task(elite, scalarization)) # each task is a (policy, weight) pair
-
-    # run MOPG for each task in parallel
-    processes = []
-    context = mp.get_context('spawn')
-    results_queue = context.Queue()
-    done_event = context.Event()
-
-    for task_id, task in enumerate(task_batch):
-        p = context.Process(target = MOPG_worker, \
-            args = (args, task_id, task, device, iteration, rl_num_updates, start_time, results_queue, done_event))
-        p.start()
-        processes.append(p)
 
     # collect MOPG results for offsprings and insert objs into objs buffer
     all_offspring_batch = [[] for _ in range(len(processes))]
@@ -241,7 +261,7 @@ def run(args,
                 
     all_offspring_batch = [sample[0] for sample in all_offspring_batch]
 
-    return all_offspring_batch, args, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
+    return processes, results_queue, done_event, all_offspring_batch, args, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
 
 # # ----------------------> Save Final Model <---------------------- 
 
