@@ -63,10 +63,12 @@ Input:
     iteration: starting iteration number
     num_updates: number of rl iterations to run.
     start_time: starting time
-    results_queue: multi-processing queue to pass the optimized policies back to main process.
-    done_event: multi-processing event for process synchronization.
 '''
-def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time, results_queue, done_event):
+def MOPG_worker(args, task_id, task, iteration, num_updates, start_time):
+    print("----- Task {} -----".format(task_id))
+    
+    device = torch.device("cpu")
+
     scalarization = task.scalarization
     env_params, actor_critic, agent = task.sample.env_params, task.sample.actor_critic, task.sample.agent
     
@@ -172,29 +174,21 @@ def MOPG_worker(args, task_id, task, device, iteration, num_updates, start_time,
         offspring_batch.append(sample)
 
         if args.rl_log_interval > 0 and (j + 1) % args.rl_log_interval == 0 and len(episode_rewards) > 1:
-            if task_id == 0:
-                total_num_steps = (j + 1) * args.num_processes * args.num_steps
-                end = time.time()
-                print(
-                    "[RL] Updates {}, num timesteps {}, FPS {}, time {:.2f} seconds"
-                    .format(j + 1, total_num_steps,
-                            int(total_num_steps / (end - start_time)),
-                            end - start_time))
+            total_num_steps = (j + 1) * args.num_processes * args.num_steps
+            end = time.time()
+            print(
+                "[RL] Updates {}, num timesteps {}, FPS {}, time {:.2f} seconds"
+                .format(j + 1, total_num_steps,
+                        int(total_num_steps / (end - start_time)),
+                        end - start_time))
 
-        # put results back every update_iter iterations, to avoid the multi-processing crash
-        if (j + 1) % args.update_iter == 0 or j == final_iter - 1:
-            offspring_batch = np.array(offspring_batch)
-            results = {}
-            results['task_id'] = task_id
-            results['offspring_batch'] = offspring_batch
-            if j == final_iter - 1:
-                results['done'] = True
-            else:
-                results['done'] = False
-            results_queue.put(results)
-            offspring_batch = []
-            
+
+    offspring_batch = np.array(offspring_batch)
+    results = {}
+    results['task_id'] = task_id
+    results['offspring_batch'] = offspring_batch
+                     
     del envs   
     gc.collect() 
-
-    done_event.wait()
+    
+    return results

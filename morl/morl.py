@@ -11,8 +11,6 @@ import numpy as np
 import torch
 import torch.optim as optim
 import traceback
-import multiprocessing as mp
-from multiprocessing import Event, Queue, Process
 import pickle
 
 # import our packages
@@ -69,37 +67,9 @@ def init_pgmorl(args):
         task_batch.append(Task(elite, scalarization)) # each task is a (policy, weight) pair
     
     return args, task_batch, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
-
-
-def init_processes(
-    args,
-    start_time,
-    task_batch,
-    rl_num_updates,
-    iteration
-):
-
-    device = torch.device("cpu")
-
-    # run MOPG for each task in parallel
-    processes = []
-    context = mp.get_context('spawn')
-    results_queue = context.Queue()
-    done_event = context.Event()
-
-    for task_id, task in enumerate(task_batch):
-        p = context.Process(target = MOPG_worker, \
-            args = (args, task_id, task, device, iteration, rl_num_updates, start_time, results_queue, done_event))
-        p.start()
-        processes.append(p)
-    
-    return processes, results_queue, done_event
     
 
-def run(processes,
-        results_queue,
-        done_event,
-        args,
+def run(args,
         total_num_updates, 
         start_time, 
         ep, 
@@ -130,24 +100,28 @@ def run(processes,
         task_batch.append(Task(elite, scalarization)) # each task is a (policy, weight) pair
 
     # collect MOPG results for offsprings and insert objs into objs buffer
-    all_offspring_batch = [[] for _ in range(len(processes))]
-    cnt_done_workers = 0
-    while cnt_done_workers < len(processes):
-        rl_results = results_queue.get()
+    all_offspring_batch = [[] for _ in range(args.num_tasks)]
+    for task_id, task in enumerate(task_batch):
+        rl_results = MOPG_worker(
+            args,
+            task_id,
+            task,
+            iteration,
+            rl_num_updates,
+            start_time
+        )
         task_id, offsprings = rl_results['task_id'], rl_results['offspring_batch']
         for sample in offsprings:
             all_offspring_batch[task_id].append(Sample.copy_from(sample))
-        if rl_results['done']:
-            cnt_done_workers += 1
     
     # put all intermidiate policies into all_sample_batch for EP update
     all_sample_batch = [] 
     # store the last policy for each optimization weight for RA
-    last_offspring_batch = [None] * len(processes) 
+    last_offspring_batch = [None] * args.num_tasks
     # only the policies with iteration % update_iter = 0 are inserted into offspring_batch for population update
     # after warm-up stage, it's equivalent to the last_offspring_batch
     offspring_batch = [] 
-    for task_id in range(len(processes)):
+    for task_id in range(args.num_tasks):
         offsprings = all_offspring_batch[task_id]
         prev_node_id = task_batch[task_id].sample.optgraph_id
         opt_weights = deepcopy(task_batch[task_id].scalarization.weights).detach().numpy()
@@ -158,8 +132,6 @@ def run(processes,
                 sample.optgraph_id = prev_node_id
                 offspring_batch.append(sample)
         last_offspring_batch[task_id] = offsprings[-1]
-
-    done_event.set()
 
     # -----------------------> Update EP <----------------------- #
     # update EP and population
@@ -261,7 +233,7 @@ def run(processes,
                 
     all_offspring_batch = [sample[0] for sample in all_offspring_batch]
 
-    return processes, results_queue, done_event, all_offspring_batch, args, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
+    return all_offspring_batch, args, total_num_updates, start_time, ep, population, opt_graph, elite_batch, scalarization_batch, scalarization_template, rl_num_updates, episode, iteration
 
 # # ----------------------> Save Final Model <---------------------- 
 
