@@ -106,7 +106,7 @@ def MOPG_worker(args, task_id, task, iteration, num_updates, start_time):
     episode_objs = deque(maxlen=10)   # for each cost component we care
     episode_obj = np.array([None] * args.num_processes)
 
-    total_num_updates = int(args.num_env_steps) // args.num_steps // args.num_processes
+    total_num_updates = int(args.num_env_steps) // (args.num_steps + args.episode_length) // args.num_processes
 
     offspring_batch = []
 
@@ -177,7 +177,7 @@ def MOPG_worker(args, task_id, task, iteration, num_updates, start_time):
             total_num_steps = (j + 1) * args.num_processes * args.num_steps
             end = time.time()
             print(
-                "[RL] Updates {}, num timesteps {}, FPS {}, time {:.2f} seconds"
+                "[RL] Updates {}, num rl timesteps {}, FPS {}, time {:.2f} seconds"
                 .format(j + 1, total_num_steps,
                         int(total_num_steps / (end - start_time)),
                         end - start_time))

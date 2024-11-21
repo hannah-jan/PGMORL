@@ -37,7 +37,7 @@ def init_pgmorl(args):
     # build a scalarization template
     scalarization_template = WeightedSumScalarization(num_objs = args.obj_num, weights = np.ones(args.obj_num) / args.obj_num)
 
-    total_num_updates = int(args.num_env_steps) // args.num_steps // args.num_processes
+    total_num_updates = int(args.num_env_steps) // (args.num_steps + args.episode_length) // args.num_processes # count evals as env_steps
     
     start_time = time.time()
 
@@ -100,7 +100,7 @@ def run(args,
         task_batch.append(Task(elite, scalarization)) # each task is a (policy, weight) pair
 
     # collect MOPG results for offsprings and insert objs into objs buffer
-    all_offspring_batch = [[] for _ in range(args.num_tasks)]
+    all_offspring_batch = [[] for _ in range(len(task_batch))]
     for task_id, task in enumerate(task_batch):
         rl_results = MOPG_worker(
             args,
@@ -117,11 +117,11 @@ def run(args,
     # put all intermidiate policies into all_sample_batch for EP update
     all_sample_batch = [] 
     # store the last policy for each optimization weight for RA
-    last_offspring_batch = [None] * args.num_tasks
+    last_offspring_batch = [None] * len(task_batch)
     # only the policies with iteration % update_iter = 0 are inserted into offspring_batch for population update
     # after warm-up stage, it's equivalent to the last_offspring_batch
     offspring_batch = [] 
-    for task_id in range(args.num_tasks):
+    for task_id in range(len(task_batch)):
         offsprings = all_offspring_batch[task_id]
         prev_node_id = task_batch[task_id].sample.optgraph_id
         opt_weights = deepcopy(task_batch[task_id].scalarization.weights).detach().numpy()
